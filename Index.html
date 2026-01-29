@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel Global HD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- PRELOAD DA IMAGEM (carrega instantâneo) -->
+<link rel="preload" as="image" href="https://i.im.ge/2026/01/30/eTYGd1.images-1.jpeg"> 
+
+<style>
+:root{
+  --red:#ef4444;
+  --red-dark:#dc2626;
+  --text:#f8fafc;
+  --input:rgba(55,65,81,0.85);
+}
+
+*{box-sizing:border-box;}
+
+html,body{
+  width:100%;
+  height:100%;
+}
+
+body{
+  margin:0;
+  font-family:'Segoe UI',Arial,sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  /* Fallback absoluto (nunca branco) */
+  background-color:#000;
+
+  background-image:
+    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+    url("https://i.im.ge/2026/01/30/eTYGd1.images-1.jpeg");
+
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+
+/* PAINEL */
+.box{
+  background:rgba(0,0,0,0.75);
+  width:100%;
+  max-width:700px;
+  padding:40px;
+  border-radius:22px;
+  border:2px solid var(--red);
+
+  box-shadow:
+    0 0 15px rgba(239,68,68,0.7),
+    0 0 30px rgba(239,68,68,0.4),
+    0 25px 50px rgba(0,0,0,0.7);
+
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+  color:var(--text);
+}
+
+/* TITULO */
+.title-glow{
+  text-align:center;
+  color:#ff2d2d;
+  font-weight:900;
+  letter-spacing:1px;
+  text-shadow:
+    0 0 5px rgba(255,45,45,0.9),
+    0 0 10px rgba(255,45,45,0.8),
+    0 0 20px rgba(239,68,68,0.9),
+    0 0 40px rgba(220,38,38,0.9);
+}
+
+input{
+  width:100%;
+  padding:18px;
+  border-radius:14px;
+  border:1px solid #7f1d1d;
+  background:var(--input);
+  color:#fff;
+  font-size:17px;
+}
+
+input:focus{
+  border:2px solid var(--red);
+  box-shadow:0 0 10px rgba(239,68,68,0.7);
+  outline:none;
+}
+
+button{
+  width:100%;
+  padding:18px;
+  border:none;
+  border-radius:14px;
+  font-size:17px;
+  font-weight:700;
+  cursor:pointer;
+  color:#fff;
+  background:linear-gradient(135deg,var(--red),var(--red-dark));
+}
+
+button:hover{filter:brightness(1.15);}
+
+.chat-btn{
+  background:transparent;
+  border:2px solid var(--red);
+  color:#ffb3b3;
+}
+
+.chat-btn:hover{
+  background:rgba(239,68,68,0.15);
+}
+
+.hidden{display:none;}
+
+/* ADMIN */
+.create-container{
+  display:flex;
+  gap:10px;
+}
+
+.create-container input{flex:1;}
+.create-container button{width:140px;}
+
+ul{
+  padding:0;
+  max-height:300px;
+  overflow-y:auto;
+}
+
+li{
+  list-style:none;
+  background:#1f2933;
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:8px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.remove{
+  background:var(--red);
+  padding:3px 6px;
+  font-size:10px;
+  border-radius:5px;
+  color:#fff;
+  cursor:pointer;
+  border:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="box" id="loginBox">
+  <h2 class="title-glow">🔐 KEY PREMIUM EGITAO</h2>
+  <input id="loginUser" placeholder="Digite sua Key">
+  <button onclick="login()">Entrar</button>
+  <button class="chat-btn" onclick="abrirChat()">💬 Chat Anônimo</button>
+</div>
+
+<!-- USUÁRIO -->
+<div class="box hidden" id="userBox">
+  <h2 class="title-glow">ACESSO LIBERADO</h2>
+  <p style="text-align:center">Redirecionando...</p>
+  <button onclick="logout()">Sair</button>
+</div>
+
+<!-- ADMIN -->
+<div class="box hidden" id="adminBox">
+  <h2 class="title-glow">PAINEL ADMIN</h2>
+
+  <div class="create-container">
+    <input id="newUser" placeholder="Nova Key">
+    <input id="diasUser" type="number" placeholder="Dias de validade">
+    <button onclick="criarUsuario()">Criar</button>
+  </div>
+
+  <ul id="listaUsuarios"></ul>
+  <button onclick="logoutAdmin()">Sair</button>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, query, where,
+  getDocs, onSnapshot, deleteDoc, doc, Timestamp
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBRU1COppsLe_QJmmRmFRASW-w_5pdUMSw",
+  authDomain: "teste-f56fb.firebaseapp.com",
+  projectId: "teste-f56fb"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const usersRef = collection(db,"usuarios");
+
+const ADMIN_USER = "admin15996529204sas";
+const LINK = "https://keycrusher.xyz/";
+let unsubscribe = null;
+
+window.login = async ()=>{
+  const key = loginUser.value.trim();
+  if(!key) return alert("Digite a Key");
+
+  if(key === ADMIN_USER){
+    loginBox.classList.add("hidden");
+    adminBox.classList.remove("hidden");
+    ouvirUsuarios();
+    return;
+  }
+
+  const q = query(usersRef, where("user","==",key));
+  const snap = await getDocs(q);
+  if(snap.empty) return alert("Key inválida");
+
+  const data = snap.docs[0].data();
+  if(data.expira.toDate() < new Date())
+    return alert("Key expirada");
+
+  loginBox.classList.add("hidden");
+  userBox.classList.remove("hidden");
+  setTimeout(()=>location.href = LINK,800);
+};
+
+window.criarUsuario = async ()=>{
+  const user = newUser.value.trim();
+  const dias = Number(diasUser.value);
+  if(!user || dias < 1) return alert("Dados inválidos");
+
+  const q = query(usersRef, where("user","==",user));
+  const snap = await getDocs(q);
+  if(!snap.empty) return alert("Key já existe");
+
+  const expira = Timestamp.fromDate(
+    new Date(Date.now() + dias * 86400000)
+  );
+
+  await addDoc(usersRef,{user,expira});
+  newUser.value="";
+  diasUser.value="";
+};
+
+function ouvirUsuarios(){
+  if(unsubscribe) unsubscribe();
+  unsubscribe = onSnapshot(usersRef, snap=>{
+    listaUsuarios.innerHTML="";
+    snap.forEach(d=>{
+      const li = document.createElement("li");
+      li.innerHTML = `${d.data().user}<button class="remove">X</button>`;
+      li.querySelector(".remove").onclick = ()=>{
+        deleteDoc(doc(db,"usuarios",d.id));
+      };
+      listaUsuarios.appendChild(li);
+    });
+  });
+}
+
+window.logout = ()=>location.reload();
+window.logoutAdmin = ()=>location.reload();
+</script>
+
+<script>
+function abrirChat(){
+  window.open("https://www.chat-avenue.com/", "_blank");
+}
+</script>
+
+</body>
+</html>
